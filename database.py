@@ -34,8 +34,10 @@ def buscar_usuarios():
     return credentials
 
 def cadastrar_usuario(nome, email, username, senha_plana):
-    # Gerar o hash da senha
-    senha_hash = stauth.Hasher([senha_plana]).generate()[0]
+    # Versão atualizada para streamlit-authenticator 0.3.0+
+    # Agora usando o método estático hash() para uma única senha
+    senha_hash = stauth.Hasher.hash(senha_plana)
+    
     try:
         conn = conectar()
         c = conn.cursor()

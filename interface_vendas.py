@@ -13,6 +13,10 @@ st.set_page_config(page_title="Analytix SaaS", layout="wide")
 # Carregar usuários do bd
 credenciais = db.buscar_usuarios()
 
+# Se o banco estiver vazio (primeiro acesso), criamos um dicionário padrão
+if not credenciais['usernames']:
+    credenciais = {'usernames': {}}
+    
 authenticator = stauth.Authenticate(
     credenciais,
     "analytix_cookie", "chave_secreta_123", cookie_expiry_days=30

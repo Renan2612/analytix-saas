@@ -61,25 +61,33 @@ elif opcao == "Login":
             # Verificação do Plano
             status_plano = user_info.get('plano_ativo', 0)
 
+            # --- VERIFICAÇÃO DE ASSINATURA ---
             if status_plano == 0:
                 st.warning("⚠️ Sua conta gratuita não permite análises preditivas.")
                 st.title("Assine o Plano Pro para Liberar a IA")
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.info("**Benefícios Pro:**\n- Inteligência Artificial\n- Mapeamento Dinâmico\n- Dashboards Pro")
+                    st.info("**Benefícios Pro:**\n- Inteligência Artificial\n- Mapeamento Dinâmico\n- Dashboards de Alto Padrão")
                     st.link_button("💳 Assinar agora por R$ 99/mês", "https://buy.stripe.com/exemplo")
                 
+                # BOTÃO DE DEBUG REFORMULADO
                 if st.button("Simular Pagamento com Sucesso (DEBUG)"):
                     db.ativar_plano(username_logado)
-                    st.success("Pagamento confirmado! Clique em 'Sair' e entre novamente.")
-                    st.rerun()
+                    st.balloons() # Efeito visual de sucesso
+                    st.success("Pagamento confirmado com sucesso!")
+                    # Pequena pausa e recarregamento automático
+                    st.info("Sincronizando sua conta... aguarde um instante.")
+                    st.rerun() 
+
             else:
                 # --- ÁREA PREMIUM LIBERADA ---
+                # Agora o código abaixo só aparece se plano_ativo for 1
                 st.success("💎 Acesso Premium Liberado")
                 st.title(f"📊 Painel Analytix: {nome_usuario}")
                 
                 arquivo = st.sidebar.file_uploader("📂 1. Anexe seu histórico CSV", type="csv")
+                # ... (resto do código de IA)
                 if arquivo:
                     st.info("Configurando mapeamento de colunas...")
                     # Aqui entra o seu código de IA que já fizemos anteriormente

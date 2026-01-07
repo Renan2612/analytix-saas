@@ -7,13 +7,12 @@ import plotly.graph_objects as go
 from sklearn.linear_model import LinearRegression
 from datetime import timedelta
 
-# Configuração da página
+# 1. Configuração da página
 st.set_page_config(page_title="Analytix SaaS", layout="wide")
 
-# Carregar usuários do bd
+# 2. Gestão de Autenticação
 credenciais = db.buscar_usuarios()
 
-# Se o banco estiver vazio (primeiro acesso), criamos um dicionário padrão
 if not credenciais['usernames']:
     credenciais = {'usernames': {}}
     
@@ -22,7 +21,7 @@ authenticator = stauth.Authenticate(
     "analytix_cookie", "chave_secreta_123", cookie_expiry_days=30
 )
 
-# MENU LATERAL: Login ou Cadastro
+# MENU LATERAL
 opcao = st.sidebar.selectbox("Menu", ["Login", "Cadastrar-se"])
 
 if opcao == "Cadastrar-se":
@@ -47,52 +46,93 @@ elif opcao == "Login":
         username_logado = st.session_state["username"]
         nome_usuario = st.session_state["name"]
         
-        # BUSCA FRESCA: Lemos o banco de dados no exato momento do login
-        dados_do_banco = db.buscar_usuarios()
-        usuarios_cadastrados = dados_do_banco.get('usernames', {})
-
-        # Buscamos o usuário (garantindo que o nome bate)
-        user_info = usuarios_cadastrados.get(username_logado)
+        # Busca fresca dos dados do usuário
+        usuarios_db = db.buscar_usuarios()['usernames']
+        user_info = usuarios_db.get(username_logado)
 
         if user_info:
             st.sidebar.title(f"👋 Olá, {nome_usuario}")
             authenticator.logout("Sair do Sistema", "sidebar")
 
-            # Verificação do Plano
             status_plano = user_info.get('plano_ativo', 0)
+            uso_atual = user_info.get('contagem_analises', 0)
 
-            # --- VERIFICAÇÃO DE ASSINATURA ---
-            if status_plano == 0:
-                st.warning("⚠️ Sua conta gratuita não permite análises preditivas.")
-                st.title("Assine o Plano Pro para Liberar a IA")
+            # Lógica de Permissão
+            pode_acessar = False
+            if status_plano == 1:
+                pode_acessar = True
+                st.sidebar.success("🚀 Plano Pro: Ilimitado")
+            elif uso_atual < 3:
+                pode_acessar = True
+                st.sidebar.info(f"🎁 Grátis: {3 - uso_atual} análises restantes")
+            else:
+                pode_acessar = False
+
+            if not pode_acessar:
+                st.warning("⚠️ Limite atingido! Você já realizou suas 3 análises gratuitas.")
+                st.title("Assine o Plano Pro por R$ 79,90/mês")
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.info("**Benefícios Pro:**\n- Inteligência Artificial\n- Mapeamento Dinâmico\n- Dashboards de Alto Padrão")
-                    st.link_button("💳 Assinar agora por R$ 99/mês", "https://buy.stripe.com/exemplo")
+                    st.info("**Vantagens do Pro:**\n- Análises Ilimitadas\n- Inteligência Artificial Avançada\n- Mapeamento de qualquer CSV")
+                    st.link_button("💳 Assinar Plano Pro", "https://buy.stripe.com/exemplo")
                 
-                # BOTÃO DE DEBUG REFORMULADO
-                if st.button("Simular Pagamento com Sucesso (DEBUG)"):
+                if st.button("Simular Pagamento (DEBUG)"):
                     db.ativar_plano(username_logado)
-                    st.balloons() # Efeito visual de sucesso
-                    st.success("Pagamento confirmado com sucesso!")
-                    # Pequena pausa e recarregamento automático
-                    st.info("Sincronizando sua conta... aguarde um instante.")
-                    st.rerun() 
-
+                    st.balloons()
+                    st.rerun()
             else:
-                # --- ÁREA PREMIUM LIBERADA ---
-                # Agora o código abaixo só aparece se plano_ativo for 1
-                st.success("💎 Acesso Premium Liberado")
+                # --- ÁREA DE TRABALHO LIBERADA ---
                 st.title(f"📊 Painel Analytix: {nome_usuario}")
+                arquivo = st.sidebar.file_uploader("📂 Anexe seu histórico CSV", type="csv")
                 
-                arquivo = st.sidebar.file_uploader("📂 1. Anexe seu histórico CSV", type="csv")
-                # ... (resto do código de IA)
                 if arquivo:
-                    st.info("Configurando mapeamento de colunas...")
-                    # Aqui entra o seu código de IA que já fizemos anteriormente
-        else:
-            st.error(f"Erro de sincronização: Usuário '{username_logado}' não encontrado no banco.")
+                    df_raw = pd.read_csv(arquivo)
+                    colunas = df_raw.columns.tolist()
+
+                    st.sidebar.subheader("⚙️ Configurar Dashboard")
+                    col_data = st.sidebar.selectbox("Coluna de Data:", colunas)
+                    col_vendas = st.sidebar.selectbox("Coluna de Vendas:", colunas)
+
+                    if st.sidebar.button("🚀 Gerar Dashboard Inteligente"):
+                        try:
+                            # Incrementa o uso no banco de dados
+                            db.incrementar_analise(username_logado)
+                            
+                            # Processamento dos Dados
+                            df = df_raw.copy()
+                            df = df.rename(columns={col_data: 'Data', col_vendas: 'Vendas'})
+                            df['Data'] = pd.to_datetime(df['Data'], errors='coerce')
+                            df = df.dropna(subset=['Data']).sort_values('Data')
+                            df['Vendas'] = pd.to_numeric(df['Vendas'], errors='coerce')
+
+                            # IA: Regressão Linear
+                            df['Data_Ordinal'] = df['Data'].apply(lambda x: x.toordinal())
+                            modelo = LinearRegression().fit(df[['Data_Ordinal']], df['Vendas'])
+                            
+                            ultima_data = df['Data'].max()
+                            datas_futuras = [ultima_data + timedelta(days=i) for i in range(1, 31)]
+                            futuro_ord = np.array([d.toordinal() for d in datas_futuras]).reshape(-1, 1)
+                            previsoes = modelo.predict(futuro_ord)
+
+                            # Dashboard Visual
+                            st.markdown("---")
+                            c1, c2 = st.columns(2)
+                            c1.metric("Faturamento Histórico", f"R$ {df['Vendas'].sum():,.2f}")
+                            c2.metric("Projeção 30 dias", f"R$ {previsoes.sum():,.2f}")
+
+                            fig = go.Figure()
+                            fig.add_trace(go.Scatter(x=df['Data'], y=df['Vendas'], name="Real", line=dict(color='#00d1b2')))
+                            fig.add_trace(go.Scatter(x=datas_futuras, y=previsoes, name="IA", line=dict(color='#ff3860', dash='dash')))
+                            fig.update_layout(template="plotly_dark", title="Tendência de Vendas")
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                            st.success("🤖 Análise concluída! O contador de uso foi atualizado.")
+                            # Força atualização do contador na barra lateral no próximo clique
+                        except Exception as e:
+                            st.error(f"Erro no processamento: {e}")
+                else:
+                    st.info("👋 Aguardando upload do arquivo CSV.")
 
     elif st.session_state["authentication_status"] is False:
         st.error("Usuário ou senha incorretos.")

@@ -7,41 +7,20 @@ def conectar():
 def criar_tabela():
     conn = conectar()
     c = conn.cursor()
+    # Criamos a tabela com as colunas de plano e contagem de uso
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios
                  (nome TEXT, email TEXT, username TEXT PRIMARY KEY, 
-                  password TEXT, plano_ativo INTEGER DEFAULT 0)''')
+                  password TEXT, plano_ativo INTEGER DEFAULT 0,
+                  contagem_analises INTEGER DEFAULT 0)''')
     conn.commit()
     conn.close()
 
-def buscar_usuarios():
-    # Garantimos que a tabela existe antes de buscar
-    criar_tabela() 
-    conn = conectar()
-    c = conn.cursor()
-    c.execute("SELECT * FROM usuarios")
-    dados = c.fetchall()
-    conn.close()
-    
-    credentials = {'usernames': {}}
-    if dados:
-        for d in dados:
-            credentials['usernames'][d[2]] = {
-                'name': d[0], 
-                'password': d[3], 
-                'email': d[1],
-                'plano_ativo': d[4] 
-            }
-    return credentials
-
 def cadastrar_usuario(nome, email, username, senha_plana):
-    # Versão atualizada para streamlit-authenticator 0.3.0+
-    # Agora usando o método estático hash() para uma única senha
     senha_hash = stauth.Hasher.hash(senha_plana)
-    
     try:
         conn = conectar()
         c = conn.cursor()
-        c.execute("INSERT INTO usuarios (nome, email, username, password, plano_ativo) VALUES (?, ?, ?, ?, 0)", 
+        c.execute("INSERT INTO usuarios (nome, email, username, password, plano_ativo, contagem_analises) VALUES (?, ?, ?, ?, 0, 0)", 
                   (nome, email, username, senha_hash))
         conn.commit()
         conn.close()
@@ -50,6 +29,25 @@ def cadastrar_usuario(nome, email, username, senha_plana):
         print(f"Erro ao cadastrar: {e}")
         return False
 
+def buscar_usuarios():
+    criar_tabela()
+    conn = conectar()
+    c = conn.cursor()
+    c.execute("SELECT * FROM usuarios")
+    dados = c.fetchall()
+    conn.close()
+    
+    credentials = {'usernames': {}}
+    for d in dados:
+        credentials['usernames'][d[2]] = {
+            'name': d[0], 
+            'password': d[3], 
+            'email': d[1],
+            'plano_ativo': d[4],
+            'contagem_analises': d[5]
+        }
+    return credentials
+
 def ativar_plano(username):
     conn = conectar()
     c = conn.cursor()
@@ -57,5 +55,12 @@ def ativar_plano(username):
     conn.commit()
     conn.close()
 
-# Inicializa ao importar
+def incrementar_analise(username):
+    conn = conectar()
+    c = conn.cursor()
+    c.execute("UPDATE usuarios SET contagem_analises = contagem_analises + 1 WHERE username = ?", (username,))
+    conn.commit()
+    conn.close()
+
+# Inicializa o banco
 criar_tabela()

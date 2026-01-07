@@ -41,50 +41,50 @@ if opcao == "Cadastrar-se":
                 st.error("Este usuário já existe.")
 
 elif opcao == "Login":
-    # 1. Tenta realizar o Login
     authenticator.login(location='main')
 
     if st.session_state["authentication_status"]:
-        username_atual = st.session_state["username"]
+        username_logado = st.session_state["username"]
         nome_usuario = st.session_state["name"]
         
-        # BUSCA DINÂMICA: Recarregamos do banco para garantir que o usuário novo seja encontrado
-        todas_credenciais = db.buscar_usuarios()
-        
-        # Verificação de segurança para evitar o KeyError
-        if username_atual in todas_credenciais['usernames']:
-            dados_user = todas_credenciais['usernames'][username_atual]
-            
-            st.sidebar.title(f"Olá, {nome_usuario}")
+        # BUSCA FRESCA: Lemos o banco de dados no exato momento do login
+        dados_do_banco = db.buscar_usuarios()
+        usuarios_cadastrados = dados_do_banco.get('usernames', {})
+
+        # Buscamos o usuário (garantindo que o nome bate)
+        user_info = usuarios_cadastrados.get(username_logado)
+
+        if user_info:
+            st.sidebar.title(f"👋 Olá, {nome_usuario}")
             authenticator.logout("Sair do Sistema", "sidebar")
 
-            # --- VERIFICAÇÃO DE ASSINATURA ---
-            if dados_user.get('plano_ativo') == 0:
+            # Verificação do Plano
+            status_plano = user_info.get('plano_ativo', 0)
+
+            if status_plano == 0:
                 st.warning("⚠️ Sua conta gratuita não permite análises preditivas.")
                 st.title("Assine o Plano Pro para Liberar a IA")
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.info("**O que você terá no Plano Pro:**\n- IA Preditiva\n- Dashboards Interativos\n- Suporte VIP")
+                    st.info("**Benefícios Pro:**\n- Inteligência Artificial\n- Mapeamento Dinâmico\n- Dashboards Pro")
                     st.link_button("💳 Assinar agora por R$ 99/mês", "https://buy.stripe.com/exemplo")
                 
                 if st.button("Simular Pagamento com Sucesso (DEBUG)"):
-                    db.ativar_plano(username_atual)
-                    st.success("Pagamento confirmado! Reiniciando...")
+                    db.ativar_plano(username_logado)
+                    st.success("Pagamento confirmado! Clique em 'Sair' e entre novamente.")
                     st.rerun()
             else:
                 # --- ÁREA PREMIUM LIBERADA ---
                 st.success("💎 Acesso Premium Liberado")
-                st.title(f"📊 Painel de Inteligência, {nome_usuario}")
+                st.title(f"📊 Painel Analytix: {nome_usuario}")
                 
-                arquivo = st.sidebar.file_uploader("📂 1. Anexe seu arquivo CSV", type="csv")
-                
+                arquivo = st.sidebar.file_uploader("📂 1. Anexe seu histórico CSV", type="csv")
                 if arquivo:
-                    # [AQUI CONTINUA O SEU CÓDIGO DE IA E GRÁFICOS]
-                    st.write("Configurando mapeamento de colunas...")
-                    # ... (restante do código de mapeamento e Plotly)
+                    st.info("Configurando mapeamento de colunas...")
+                    # Aqui entra o seu código de IA que já fizemos anteriormente
         else:
-            st.error("Erro ao sincronizar dados. Por favor, tente recarregar a página.")
+            st.error(f"Erro de sincronização: Usuário '{username_logado}' não encontrado no banco.")
 
     elif st.session_state["authentication_status"] is False:
         st.error("Usuário ou senha incorretos.")

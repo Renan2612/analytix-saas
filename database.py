@@ -2,12 +2,13 @@ import sqlite3
 import streamlit_authenticator as stauth
 
 def conectar():
-    return sqlite3.connect('usuarios.db', check_same_thread=False)
+    # Alterado para v2 para garantir a criação da coluna contagem_analises
+    return sqlite3.connect('usuarios_v2.db', check_same_thread=False)
 
 def criar_tabela():
     conn = conectar()
     c = conn.cursor()
-    # Criamos a tabela com as colunas de plano e contagem de uso
+    # A tabela agora inclui obrigatoriamente a contagem_analises
     c.execute('''CREATE TABLE IF NOT EXISTS usuarios
                  (nome TEXT, email TEXT, username TEXT PRIMARY KEY, 
                   password TEXT, plano_ativo INTEGER DEFAULT 0,
@@ -62,5 +63,5 @@ def incrementar_analise(username):
     conn.commit()
     conn.close()
 
-# Inicializa o banco
+# Inicializa o banco v2
 criar_tabela()
